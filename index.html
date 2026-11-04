@@ -245,6 +245,18 @@
   nav .tab svg { width: 21px; height: 21px; }
   nav .plus { width: 48px; height: 48px; margin: 0; padding: 0; display: grid; place-items: center; align-self: center; }
   nav .plus svg { width: 22px; height: 22px; display: block; }
+  /* Без бокового сдвига и полос прокрутки — как в обычном приложении */
+  html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavior-x: none; }
+  body { touch-action: pan-y; }
+  .chips, .sheet { touch-action: pan-x pan-y; }
+  html { scrollbar-width: none; -ms-overflow-style: none; }
+  ::-webkit-scrollbar { width: 0; height: 0; display: none; background: transparent; }
+  .wrap { overflow-x: clip; }
+  .chips { scrollbar-width: none; }
+  .grip { touch-action: none; cursor: grab; background: transparent; color: var(--faint); }
+  .grip svg { width: 18px; height: 18px; }
+  #catList .row { transition: transform .16s ease; background: var(--card); }
+  #catList .row.dragging { position: relative; z-index: 5; transition: none; background: var(--field); box-shadow: 0 12px 30px rgba(0,0,0,.55); border-radius: 14px; }
   .qbar { display: none; background: rgba(255,134,46,.14); color: var(--orange); font-size: 13px; padding: 10px 12px; border-radius: 14px; margin-bottom: 10px; }
   /* Иконки */
   .av { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex: 0 0 auto; }
@@ -413,7 +425,7 @@
 
   <section class="screen" id="s-cats">
     <div class="seg two" id="catSeg"><button data-c="Расход" class="on">Расходы</button><button data-c="Доход">Доходы</button></div>
-    <div class="editbar">Режим изменения: нажмите на категорию, чтобы переименовать, или × чтобы удалить</div>
+    <div class="editbar">Режим изменения: тяните за ⠿, чтобы поменять порядок, нажатие — переименовать, × — удалить. Порядок сохранится по кнопке «Готово»</div>
     <div class="list" id="catList"></div>
     <button class="addbtn" id="catAdd">+ Новая категория</button>
   </section>
@@ -486,6 +498,9 @@
     bank: '<path d="M3 10l9-6 9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18"/>',
     target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
     up: '<path d="M7 17L17 7"/><path d="M8 7h9v9"/>',
+    grip: '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',
+    arrowUp: '<path d="M12 19V5"/><path d="M6 11l6-6 6 6"/>',
+    arrowDown: '<path d="M12 5v14"/><path d="M6 13l6 6 6-6"/>',
     put: '<path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/>',
     take: '<path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M5 20h14"/>',
   };
@@ -534,6 +549,7 @@
   }
   const num = v => { const n = Number(String(v == null ? '' : v).replace(/[\s ]/g, '').replace(',', '.')); return isFinite(n) ? n : NaN; };
   const fmt = (n, cur) => (cur === 'USD' ? nf2 : nf0).format(n);
+  const todayISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const acc = name => D.accounts.find(a => a.name === name);
   const active = () => D.accounts.filter(a => a.active);
@@ -612,7 +628,19 @@
     if (cur === 'goal') loadGoalHistory();
     if (cur === 'goals') loadAllSavings();
   }
+  const catOrderDirty = {};
+  function saveCatOrder() {
+    Object.keys(catOrderDirty).forEach(t => {
+      if (!catOrderDirty[t]) return;
+      catOrderDirty[t] = false;
+      const names = D.categories[t].slice();
+      api('saveCategoryOrder', [t, names])
+        .then(d => { D = d; saveCache(); renderAll(); toast('Порядок сохранён'); })
+        .catch(e => { toast('Порядок не сохранён: ' + e.message, true); refresh(false); });
+    });
+  }
   function setEdit(on) {
+    if (!on && editMode) saveCatOrder();
     editMode = on;
     $('editBtn').textContent = on ? 'Готово' : 'Изменить';
     $('editBtn').classList.toggle('on', on);
@@ -667,7 +695,7 @@
         g.accs.map(a => '<div><span>' + esc(a.name) + (a.active ? '' : ' (скрыт)') + '</span><span>' + fmt(a.balance, a.currency) + ' ' + esc(a.symbol) + '</span></div>').join('') + '</div></div>';
     }).join('');
 
-    const d = new Date(D.today + 'T00:00:00');
+    const d = new Date(todayISO() + 'T00:00:00');
     $('monthTitle').textContent = MONTHS[d.getMonth()];
     const s = monthStats;
     const inc = s ? s.current.income : 0, exp = s ? s.current.expense : 0, mx = Math.max(inc, exp, 1);
@@ -791,7 +819,7 @@
   function resetForm() {
     editingOp = null;
     $('amount').value = ''; $('toAmount').value = ''; $('comment').value = '';
-    $('date').value = D.today;
+    $('date').value = todayISO();
     $('save').textContent = 'Сохранить';
     $('cancelEdit').hidden = true;
     setType(type === 'Перевод' || type === 'Обмен' || type === 'Доход' ? type : 'Расход');
@@ -835,7 +863,7 @@
   // ---------- Операции ----------
   let hist = { offset: 0, items: [] };
   function fillFilters() {
-    const d = new Date(D.today + 'T00:00:00');
+    const d = new Date(todayISO() + 'T00:00:00');
     const months = [{ value: '', label: 'Все месяцы' }];
     for (let i = 0; i < 24; i++) {
       const m = new Date(d.getFullYear(), d.getMonth() - i, 1);
@@ -847,7 +875,7 @@
   }
 
   function renderPays() {
-    const d = new Date(D.today + 'T00:00:00');
+    const d = new Date(todayISO() + 'T00:00:00');
     $('opsPayTitle').textContent = 'Платежи: ' + MONTHS[d.getMonth()].toLowerCase();
     const act = D.recurring.filter(p => p.active);
     if (!act.length) { $('payList').innerHTML = '<div class="empty">Добавьте платежи в настройках</div>'; return; }
@@ -898,7 +926,9 @@
 
     [...$('catSeg').children].forEach(b => b.classList.toggle('on', b.dataset.c === catType));
     $('catList').innerHTML = (D.categories[catType] || []).map(c =>
-      '<div class="row tap" data-cat="' + esc(c) + '">' + catAvatar(c, true) + '<div class="main"><b>' + esc(c) + '</b></div><div class="edit"><button class="ic del" data-del="1" aria-label="Удалить">×</button></div></div>').join('') ||
+      '<div class="row tap" data-cat="' + esc(c) + '">' + catAvatar(c, true) + '<div class="main"><b>' + esc(c) + '</b></div><div class="edit">' +
+      '<span class="ic grip" aria-label="Перетащить">' + svg('grip') + '</span>' +
+      '<button class="ic del" data-del="1" aria-label="Удалить">×</button></div></div>').join('') ||
       '<div class="empty">Категорий нет</div>';
 
     $('recList').innerHTML = D.recurring.map(p =>
@@ -977,7 +1007,7 @@
   const pct = g => g.target > 0 ? Math.max(0, Math.min(100, g.saved / g.target * 100)) : 0;
   function monthsLeft(g) {
     if (!g.deadline) return 0;
-    const d = new Date(g.deadline + 'T00:00:00'), t = new Date(D.today + 'T00:00:00');
+    const d = new Date(g.deadline + 'T00:00:00'), t = new Date(todayISO() + 'T00:00:00');
     return Math.max(1, (d.getFullYear() - t.getFullYear()) * 12 + d.getMonth() - t.getMonth());
   }
   const dmy = iso => { const d = new Date(iso + 'T00:00:00'); return d.getDate() + ' ' + MON[d.getMonth()] + ' ' + d.getFullYear(); };
@@ -1077,7 +1107,7 @@
     openSheet('<h3>' + (out ? 'Забрать из «' : 'Отложить в «') + esc(g.name) + '»</h3>' +
       (out ? '<p>Доступно: ' + gm(g.saved, g) + '</p>' : '') +
       '<div class="amount"><div class="r"><input id="sAmt" inputmode="decimal" placeholder="0" autocomplete="off"><span class="sym">' + esc(g.symbol) + '</span></div></div>' +
-      '<div class="form"><div class="f"><label>Дата</label><input id="sDate" type="date" value="' + D.today + '"></div>' +
+      '<div class="form"><div class="f"><label>Дата</label><input id="sDate" type="date" value="' + todayISO() + '"></div>' +
       '<div class="f"><label>Комментарий</label><input id="sCom" placeholder="' + (out ? 'на что взяли' : 'необязательно') + '"></div></div>' +
       '<button class="primary" id="sOk" style="background:' + (out ? 'var(--red)' : 'var(--gold)') + ';color:#1F1206">' + (out ? 'Забрать' : 'Отложить') + '</button>' +
       '<button class="secondary" id="sNo">Отмена</button>', b => {
@@ -1243,11 +1273,77 @@
     if (!editMode) return;
     const r = e.target.closest('[data-cat]'); if (!r) return;
     const name = r.dataset.cat;
-    if (e.target.dataset.del) confirmSheet('Удалить «' + name + '»?', 'Категория исчезнет из списка. Старые операции сохранят её название.', 'Удалить',
+    if (e.target.closest('.grip')) return;
+    const btn = e.target.closest('button');
+    if (btn && btn.dataset.move) {
+      // Порядок меняется сразу на экране, а в таблицу сохраняется при нажатии «Готово»
+      const list = D.categories[catType], i = list.indexOf(name), j = i + Number(btn.dataset.move);
+      if (i < 0 || j < 0 || j >= list.length) return;
+      [list[i], list[j]] = [list[j], list[i]];
+      catOrderDirty[catType] = true;
+      renderSettings();
+      return;
+    }
+    if (btn && btn.dataset.del) confirmSheet('Удалить «' + name + '»?', 'Категория исчезнет из списка. Старые операции сохранят её название.', 'Удалить',
       () => mutate('deleteCategory', [catType, name], 'Удалено'), true);
     else categorySheet(name);
   };
   $('catAdd').onclick = () => categorySheet('');
+
+  // ---------- Перетаскивание категорий за «ручку» ⠿ (работает пальцем на iPhone) ----------
+  let drag = null;
+  $('catList').addEventListener('pointerdown', e => {
+    const grip = e.target.closest('.grip');
+    if (!grip || !editMode) return;
+    e.preventDefault();
+    const row = grip.closest('[data-cat]');
+    const rows = [...$('catList').querySelectorAll('[data-cat]')];
+    drag = {
+      row: row, rows: rows, from: rows.indexOf(row), to: rows.indexOf(row), id: e.pointerId,
+      startY: e.clientY + window.scrollY, h: row.offsetHeight,
+      mids: rows.map(r => { const b = r.getBoundingClientRect(); return b.top + window.scrollY + b.height / 2; }),
+    };
+    try { grip.setPointerCapture(e.pointerId); } catch (err) {}
+    row.classList.add('dragging');
+  });
+  $('catList').addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    e.preventDefault();
+    if (e.clientY > innerHeight - 110) window.scrollBy(0, 10);
+    else if (e.clientY < 120) window.scrollBy(0, -10);
+    const dy = e.clientY + window.scrollY - drag.startY;
+    drag.row.style.transform = 'translateY(' + dy + 'px)';
+    const center = drag.mids[drag.from] + dy;
+    let to = drag.from;
+    drag.mids.forEach((m, i) => {
+      if (i < drag.from && center < m) to = Math.min(to, i);
+      if (i > drag.from && center > m) to = Math.max(to, i);
+    });
+    drag.to = to;
+    drag.rows.forEach((r, i) => {
+      if (r === drag.row) return;
+      let shift = 0;
+      if (drag.from < to && i > drag.from && i <= to) shift = -drag.h;
+      if (drag.from > to && i < drag.from && i >= to) shift = drag.h;
+      r.style.transform = shift ? 'translateY(' + shift + 'px)' : '';
+    });
+  });
+  const endDrag = e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag; drag = null;
+    d.rows.forEach(r => { r.style.transform = ''; });
+    d.row.classList.remove('dragging');
+    if (d.to !== d.from) {
+      const list = D.categories[catType];
+      const [moved] = list.splice(d.from, 1);
+      list.splice(d.to, 0, moved);
+      catOrderDirty[catType] = true;
+      if (navigator.vibrate) navigator.vibrate(10);
+    }
+    renderSettings();
+  };
+  $('catList').addEventListener('pointerup', endDrag);
+  $('catList').addEventListener('pointercancel', endDrag);
   $('recList').onclick = e => {
     if (!editMode) return;
     const r = e.target.closest('[data-rec]'); if (!r) return;
