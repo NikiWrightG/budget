@@ -258,6 +258,9 @@
   #catList .row { transition: transform .16s ease; background: var(--card); }
   #catList .row.dragging { position: relative; z-index: 5; transition: none; background: var(--field); box-shadow: 0 12px 30px rgba(0,0,0,.55); border-radius: 14px; }
   .f select.cursel { flex: 0 0 auto; width: auto; min-width: 52px; padding-left: 6px; color: var(--muted); }
+  :root { --debt: #9646EF; --grad-debt: linear-gradient(135deg, #B07CFF, #9646EF 60%, #7A32D6); }
+  .dtrack div { background: linear-gradient(90deg, #B07CFF, var(--debt)) !important; }
+  #gSeg { margin-bottom: 12px; }
   .qbar { display: none; background: rgba(255,134,46,.14); color: var(--orange); font-size: 13px; padding: 10px 12px; border-radius: 14px; margin-bottom: 10px; }
   /* Иконки */
   .av { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex: 0 0 auto; }
@@ -325,6 +328,7 @@
     </div>
     <h2><span id="monthTitle">Этот месяц</span><button class="link" data-go="stats">Аналитика ›</button></h2>
     <div class="card sum" id="monthStats"></div>
+    <div class="pill" id="debtsPill" hidden><div style="flex:1;min-width:0"><b id="debtsTitle">Долги</b><div class="gtrack dtrack" style="width:160px;height:4px"><div id="debtsBar"></div></div></div><span class="chev">›</span></div>
     <div class="pill" data-go="goals"><div style="flex:1;min-width:0"><b id="goalsTitle">Накопления</b><div class="gtrack" style="width:160px;height:4px"><div id="goalsBar"></div></div></div><span class="chev">›</span></div>
     <div class="pill" data-go="ops"><div><b id="payTitle">Платежи</b><div class="bar"><div id="payBar"></div></div></div><span class="chev">›</span></div>
     <h2><span>Последние операции</span><button class="link" data-go="ops">Все ›</button></h2>
@@ -382,7 +386,9 @@
 
   <!-- Накопления -->
   <section class="screen" id="s-goals">
-    <div class="editbar">Режим изменения: нажмите на цель, чтобы изменить её, × удаляет цель или запись истории</div>
+    <div class="seg two" id="gSeg"><button data-s="goals" class="on">Накопления</button><button data-s="debts">Долги</button></div>
+    <div class="editbar" id="goalsEditbar">Режим изменения: нажмите на цель, чтобы изменить её, × удаляет цель или запись истории</div>
+    <div id="goalsPane">
     <div class="ghero" id="goalsHero"></div>
     <div class="gstats three" id="goalsSum"></div>
     <h2><span>Цели</span></h2>
@@ -391,6 +397,17 @@
     <h2><span>История</span><span id="allHistCount"></span></h2>
     <div class="list" id="allHist"></div>
     <div class="note">Отложенные деньги — пометка: они остаются на ваших счетах и входят в капитал, но показываются отдельно как «отложено».</div>
+    </div>
+    <div id="debtsPane" hidden>
+      <div class="ghero" id="debtsHero"></div>
+      <div class="gstats three" id="debtsSum"></div>
+      <h2><span>Долги</span></h2>
+      <div id="debtList"></div>
+      <button class="addbtn" id="debtAdd">+ Новый долг</button>
+      <h2><span>История платежей</span><span id="debtHistCount"></span></h2>
+      <div class="list" id="debtHistAll"></div>
+      <div class="note">Платёж со счёта сразу уменьшает его остаток и попадает в расходы (категория «Погашение долгов»).</div>
+    </div>
   </section>
 
   <section class="screen" id="s-goal">
@@ -400,6 +417,15 @@
     <div class="gstats" id="goalStats"></div>
     <h2><span>История</span></h2>
     <div class="list" id="goalHist"></div>
+  </section>
+
+  <section class="screen" id="s-debt">
+    <div class="editbar">Режим изменения: × удаляет платёж (и связанный с ним расход)</div>
+    <div class="ghero" id="debtHero"></div>
+    <div class="gbtns" style="grid-template-columns:1fr"><button class="put" id="dPay" style="background:var(--grad-debt);color:#fff">Внести платёж</button></div>
+    <div class="gstats" id="debtStats"></div>
+    <h2><span>Платежи</span></h2>
+    <div class="list" id="debtHist"></div>
   </section>
 
   <!-- Настройки -->
@@ -513,7 +539,7 @@
     [/подписк|сервис/i, 'repeat'], [/аптек|лекарств/i, 'pill'], [/здоров|врач|медиц|спорт/i, 'heart'], [/красот|уход|салон/i, 'sparkle'],
     [/одежд|обув/i, 'shirt'], [/дом|быт|мебел/i, 'sofa'], [/развлеч|кино|игр|отдых/i, 'ticket'], [/путешеств|поездк|отпуск|билет/i, 'plane'],
     [/подар/i, 'gift'], [/документ|виз|налог|штраф/i, 'file'], [/живот|питом|корм/i, 'paw'], [/образов|курс|книг|учеб/i, 'book'],
-    [/зарплат|оклад|работ/i, 'briefcase'], [/фриланс|заказ|проект/i, 'laptop'], [/кэшб|процент|кешб|вклад/i, 'percent'], [/проч|разн|друг/i, 'dots'],
+    [/долг|кредит|займ|ипотек/i, 'bank'], [/зарплат|оклад|работ/i, 'briefcase'], [/фриланс|заказ|проект/i, 'laptop'], [/кэшб|процент|кешб|вклад/i, 'percent'], [/проч|разн|друг/i, 'dots'],
   ];
   const COLORS = ['#455DDC', '#F73463', '#9646EF', '#FF862E', '#43D1A7', '#3BA8F5', '#E8B93B', '#EF5DA8', '#5BC0BE', '#8A7CF6'];
   // Цвет выдаётся автоматически по названию: одна и та же категория всегда одного цвета
@@ -542,9 +568,9 @@
     return m ? esc(m[1]) + '<span class="dec">' + m[2] + '</span>' + esc(m[3]) : esc(s);
   }
   const TITLES = { setup: 'Бюджет', home: 'Бюджет', add: 'Новая операция', ops: 'Операции', stats: 'Аналитика', settings: 'Настройки',
-    accounts: 'Счета и остатки', cats: 'Категории', recurring: 'Регулярные платежи', goals: 'Накопления', goal: 'Цель' };
+    accounts: 'Счета и остатки', cats: 'Категории', recurring: 'Регулярные платежи', goals: 'Накопления', goal: 'Цель', debt: 'Долг' };
   const ROOTS = { home: 1, goals: 1, stats: 1, ops: 1 };
-  const EDITABLE = { ops: 1, accounts: 1, cats: 1, recurring: 1, goals: 1, goal: 1 };
+  const EDITABLE = { ops: 1, accounts: 1, cats: 1, recurring: 1, goals: 1, goal: 1, debt: 1 };
 
   function store(k, v) {
     try { if (v === undefined) return localStorage.getItem('budget.' + k); localStorage.setItem('budget.' + k, v); } catch (e) { return null; }
@@ -628,7 +654,8 @@
     if (cur === 'ops') loadHistory(true);
     if (cur === 'add' && !editingOp) resetForm();
     if (cur === 'goal') loadGoalHistory();
-    if (cur === 'goals') loadAllSavings();
+    if (cur === 'goals') { setGoalsTab(goalsTab); if (goalsTab === 'debts') loadAllDebtPays(); else loadAllSavings(); }
+    if (cur === 'debt') loadDebtHistory();
   }
   const catOrderDirty = {};
   function saveCatOrder() {
@@ -1155,6 +1182,160 @@
     });
   }
 
+  // ---------- Долги ----------
+  let goalsTab = store('goalsTab') || 'goals';
+  let curDebt = null, debtHist = [], allDebtPays = [];
+  const debtOf = name => (D.debts || []).find(d => d.name === name);
+  const dpct = d => d.total > 0 ? Math.max(0, Math.min(100, d.paid / d.total * 100)) : 0;
+
+  function setGoalsTab(t) {
+    goalsTab = t; store('goalsTab', t);
+    [...$('gSeg').children].forEach(b => b.classList.toggle('on', b.dataset.s === t));
+    $('goalsPane').hidden = t !== 'goals';
+    $('debtsPane').hidden = t !== 'debts';
+    $('goalsEditbar').textContent = t === 'debts'
+      ? 'Режим изменения: нажмите на долг, чтобы изменить его, × удаляет долг или платёж'
+      : 'Режим изменения: нажмите на цель, чтобы изменить её, × удаляет цель или запись истории';
+    if (stack[stack.length - 1] === 'goals') $('title').textContent = t === 'debts' ? 'Долги' : 'Накопления';
+  }
+
+  function renderDebts() {
+    const debts = D.debts || [];
+    const total = debts.reduce((t, d) => t + inBase(d.total, d.currency), 0);
+    const paid = debts.reduce((t, d) => t + inBase(d.paid, d.currency), 0);
+    const left = Math.max(0, total - paid), p = total ? Math.min(100, paid / total * 100) : 0;
+
+    $('debtsPill').hidden = !debts.length;
+    $('debtsTitle').textContent = 'Долги: осталось ' + money(left);
+    $('debtsBar').style.width = p + '%';
+
+    $('debtsHero').innerHTML = '<div class="of" style="margin:0 0 2px">Осталось отдать</div><div class="big" style="color:var(--debt)">' + heroMoney(left) + '</div>' +
+      (total ? '<div class="gtrack dtrack"><div style="width:' + p + '%"></div></div><div class="meta"><span>отдали ' + nf0.format(p) + '%</span><span>из ' + money(total) + '</span></div>' : '');
+    $('debtsSum').innerHTML = '<div><small>Всего долгов</small><b>' + money(total) + '</b></div>' +
+      '<div><small>Отдали</small><b class="in">' + money(paid) + '</b></div>' +
+      '<div><small>Осталось</small><b style="color:var(--debt)">' + money(left) + '</b></div>';
+    $('debtList').innerHTML = debts.length ? debts.map(d =>
+      '<div class="gcard" data-debt="' + esc(d.name) + '">' + avatar('bank', '#9646EF') + '<div class="main"><div class="t"><b>' + esc(d.name) + '</b><span>' +
+      (d.left > 0 ? 'осталось ' + gm(d.left, d) : '<span class="in">отдали ✓</span>') + '</span></div>' +
+      '<div class="gtrack dtrack"><div style="width:' + dpct(d) + '%"></div></div><small><span>отдали ' + gm(d.paid, d) + ' из ' + gm(d.total, d) +
+      ' · ' + nf0.format(dpct(d)) + '%</span><span>' + (d.deadline ? 'до ' + dmy(d.deadline) : '') + '</span></small>' +
+      '</div><div class="edit"><button class="ic del" data-del="1" aria-label="Удалить">×</button></div><span class="chev">›</span></div>').join('')
+      : '<div class="card empty">Долгов нет. Чтобы добавить, нажмите «Изменить» → «+ Новый долг»</div>';
+  }
+
+  // Строка платежа по долгу
+  function debtPayRow(h, i, attr, withDebt) {
+    const d = debtOf(h.debt) || debtOf(curDebt) || { currency: base, symbol: sym(base) };
+    const acc0 = h.account ? acc(h.account) : null;
+    const accPart = h.account ? 'со счёта ' + h.account + (acc0 && acc0.currency !== d.currency && h.accountAmount ? ' (' + fmt(h.accountAmount, acc0.currency) + ' ' + acc0.symbol + ')' : '') : 'без списания со счёта';
+    return '<div class="row">' + avatar('bank', '#9646EF') + '<div class="main"><b>Внесли' + '</b><small>' + (withDebt ? esc(h.debt) + ' · ' : '') + dmy(h.iso) +
+      ' · ' + esc(accPart) + (h.comment ? ' · ' + esc(h.comment) : '') + '</small></div><div class="side in">−' + fmt(h.amount, d.currency) + ' ' + esc(d.symbol) +
+      '</div><div class="edit"><button class="ic del" ' + attr + '="' + i + '" aria-label="Удалить">×</button></div></div>';
+  }
+
+  function renderAllDebtPays() {
+    $('debtHistCount').textContent = allDebtPays.length ? allDebtPays.length + ' шт.' : '';
+    $('debtHistAll').innerHTML = allDebtPays.loading ? '<div class="empty">Загрузка…</div>' : allDebtPays.length ?
+      allDebtPays.map((h, i) => debtPayRow(h, i, 'data-dadel', true)).join('') : '<div class="empty">Платежей пока нет</div>';
+  }
+  function loadAllDebtPays() {
+    allDebtPays = []; allDebtPays.loading = true; renderAllDebtPays();
+    api('getDebtHistory', ['']).then(h => { allDebtPays = h; renderAllDebtPays(); }).catch(e => { allDebtPays = []; renderAllDebtPays(); if (!(e instanceof NetError)) toast(e.message, true); });
+  }
+
+  function openDebt(name) { curDebt = name; debtHist = []; go('debt'); }
+
+  function renderDebt() {
+    const d = debtOf(curDebt);
+    if (!d) { back(); return; }
+    $('title').textContent = d.name;
+    const ml = monthsLeft(d);
+    $('debtHero').innerHTML = '<div class="of" style="margin:0 0 2px">Осталось отдать</div><div class="big" style="color:var(--debt)">' + gm(Math.max(0, d.left), d) + '</div>' +
+      '<div class="of">из ' + gm(d.total, d) + '</div><div class="gtrack dtrack"><div style="width:' + dpct(d) + '%"></div></div>' +
+      '<div class="meta"><span>отдали ' + nf0.format(dpct(d)) + '%</span><span>' + (d.left > 0 ? 'внесено ' + gm(d.paid, d) : 'долг закрыт ✓') + '</span></div>' +
+      (d.deadline && d.left > 0 ? '<div class="meta"><span>до ' + dmy(d.deadline) + '</span><span>≈ ' + gm(d.left / ml, d) + ' в месяц</span></div>' : '');
+    $('dPay').hidden = !(d.left > 0);
+    $('debtStats').innerHTML = '<div><small>Отдали</small><b class="in">' + gm(d.paid, d) + '</b></div>' +
+      '<div><small>Осталось</small><b style="color:var(--debt)">' + gm(Math.max(0, d.left), d) + '</b></div>';
+    $('debtHist').innerHTML = !debtHist.length ? '<div class="empty">' + (debtHist.loading ? 'Загрузка…' : 'Платежей пока нет') + '</div>' :
+      debtHist.map((h, i) => debtPayRow(h, i, 'data-ddel', false)).join('');
+  }
+  function loadDebtHistory() {
+    debtHist = []; debtHist.loading = true; renderDebt();
+    const name = curDebt;
+    api('getDebtHistory', [name]).then(h => { if (curDebt === name) { debtHist = h; renderDebt(); } }).catch(() => { debtHist = []; renderDebt(); });
+  }
+
+  function debtSheet(d) {
+    const isNew = !d;
+    d = d || { name: '', total: '', currency: base, deadline: '' };
+    openSheet('<h3>' + (isNew ? 'Новый долг' : esc(d.name)) + '</h3><div class="form">' +
+      '<div class="f"><label>Кому / за что</label><input id="dName" value="' + esc(d.name) + '" placeholder="Например, Маме, кредитка"></div>' +
+      '<div class="f"><label>Валюта</label><select id="dCur">' + Object.keys(D.currencies).map(c => opt(c, c + ' · ' + sym(c), c === d.currency)).join('') + '</select></div>' +
+      '<div class="f"><label>Сумма долга</label><input id="dTotal" inputmode="decimal" value="' + esc(d.total || '') + '" placeholder="0"></div>' +
+      '<div class="f"><label>Срок</label><input id="dDate" type="date" value="' + esc(d.deadline) + '"></div></div>' +
+      (isNew ? '<div class="note">Если часть уже отдали — после создания внесите её платежом без списания со счёта.</div>' : '') +
+      '<button class="primary" id="dSave" style="background:var(--grad-debt)">Сохранить</button><button class="secondary" id="dCancel">Отмена</button>', b => {
+      const t = b.querySelector('#dTotal'); t.oninput = () => groupDigits(t); groupDigits(t);
+      b.querySelector('#dCancel').onclick = closeSheet;
+      b.querySelector('#dSave').onclick = () => {
+        const name = b.querySelector('#dName').value.trim();
+        mutate('saveDebt', [{ orig: isNew ? '' : d.name, name: name, currency: b.querySelector('#dCur').value,
+          total: t.value, deadline: b.querySelector('#dDate').value }], 'Сохранено', () => {
+          closeSheet();
+          if (!isNew && curDebt === d.name) curDebt = name;
+        });
+      };
+    });
+  }
+
+  function debtPaySheet() {
+    const d = debtOf(curDebt);
+    if (!d) return;
+    const accs = D.accounts.filter(a => a.active);
+    const saved = store('debtAcc');
+    const def = saved !== null && (saved === '' || accs.some(a => a.name === saved)) ? saved : ((accs.find(a => a.currency === d.currency) || accs[0] || {}).name || '');
+    openSheet('<h3>Платёж: ' + esc(d.name) + '</h3><p>Осталось отдать: ' + gm(d.left, d) + '</p>' +
+      '<div class="amount"><div class="r"><input id="pAmt" inputmode="decimal" placeholder="0" autocomplete="off"><span class="sym">' + esc(d.symbol) + '</span></div></div>' +
+      '<div class="form">' +
+      '<div class="f"><label>Со счёта</label><select id="pAcc">' + opt('', 'Не списывать со счёта', def === '') +
+        accs.map(a => opt(a.name, a.name + ' · ' + a.symbol, a.name === def)).join('') + '</select></div>' +
+      '<div class="f" id="pAccAmtRow"><label>Списано со счёта</label><input id="pAccAmt" inputmode="decimal" placeholder="0" autocomplete="off"></div>' +
+      '<div class="f"><label>Дата</label><input id="pDate" type="date" value="' + todayISO() + '"></div>' +
+      '<div class="f"><label>Комментарий</label><input id="pCom" placeholder="необязательно"></div></div>' +
+      '<div class="note" id="pNote"></div>' +
+      '<button class="primary" id="pOk" style="background:var(--grad-debt)">Внести</button><button class="secondary" id="pNo">Отмена</button>', b => {
+      const amt = b.querySelector('#pAmt'), accSel = b.querySelector('#pAcc'), accAmt = b.querySelector('#pAccAmt');
+      const sync = () => {
+        amt.style.width = (Math.max(1, amt.value.length) + 0.6) + 'ch';
+        const a = acc(accSel.value), other = a && a.currency !== d.currency;
+        b.querySelector('#pAccAmtRow').classList.toggle('hidden', !other);
+        if (other) accAmt.placeholder = '0 ' + a.symbol;
+        const v = num(amt.value), w = num(accAmt.value);
+        let note = '';
+        if (!a) note = 'Остаток на счетах не изменится — для старых платежей';
+        else if (other && v > 0 && w > 0) note = 'Курс оплаты 1 ' + a.symbol + ' = ' + nf2.format(v / w) + ' ' + d.symbol + ' · рыночный ' + nf2.format(rate(d.currency) / rate(a.currency)) + ' ' + d.symbol;
+        else if (other && v > 0) note = 'По рыночному курсу ≈ ' + fmt(v / rate(d.currency) * rate(a.currency), a.currency) + ' ' + a.symbol + '. Укажите, сколько списалось на самом деле';
+        else note = 'Остаток «' + a.name + '»: ' + fmt(a.balance, a.currency) + ' ' + a.symbol;
+        b.querySelector('#pNote').textContent = note;
+      };
+      amt.oninput = () => { groupDigits(amt); sync(); };
+      accAmt.oninput = () => { groupDigits(accAmt); sync(); };
+      accSel.onchange = sync; sync();
+      setTimeout(() => amt.focus(), 250);
+      b.querySelector('#pNo').onclick = closeSheet;
+      b.querySelector('#pOk').onclick = () => {
+        const v = num(amt.value), a = acc(accSel.value);
+        if (!(v > 0)) { toast('Введите сумму', true); amt.focus(); return; }
+        if (v > d.left + 1e-9) { toast('Осталось отдать только ' + gm(d.left, d), true); return; }
+        if (a && a.currency !== d.currency && !(num(accAmt.value) > 0)) { toast('Введите, сколько списалось со счёта', true); accAmt.focus(); return; }
+        store('debtAcc', accSel.value);
+        mutate('addDebtPayment', [{ debt: d.name, amount: v, account: accSel.value, accountAmount: accAmt.value,
+          date: b.querySelector('#pDate').value, comment: b.querySelector('#pCom').value }], 'Внесено ' + gm(v, d), () => { closeSheet(); loadDebtHistory(); });
+      };
+    });
+  }
+
   // ---------- Аналитика ----------
   let statPeriod = 'month';
   let statCache = {};
@@ -1224,9 +1405,11 @@
     renderPays();
     renderSettings();
     renderGoals();
+    renderDebts();
     fillFilters();
     const cur = stack[stack.length - 1];
     if (cur === 'goal') renderGoal();
+    if (cur === 'debt') renderDebt();
     if (cur === 'add' && !editingOp) setType(type);
     if (cur === 'ops') loadHistory(true);
     if (cur === 'stats') loadStats();
@@ -1394,6 +1577,29 @@
     else goalSheet(g);
   };
   $('goalAdd').onclick = () => goalSheet(null);
+  $('gSeg').onclick = e => {
+    const t = e.target.closest('[data-s]'); if (!t) return;
+    setEdit(false); setGoalsTab(t.dataset.s);
+    if (t.dataset.s === 'debts') loadAllDebtPays(); else loadAllSavings();
+  };
+  $('debtsPill').onclick = () => { goalsTab = 'debts'; go('goals'); };
+  $('debtList').onclick = e => {
+    const c = e.target.closest('[data-debt]'); if (!c) return;
+    const d = debtOf(c.dataset.debt);
+    if (!editMode) { openDebt(d.name); return; }
+    if (e.target.closest('[data-del]')) confirmSheet('Удалить долг «' + d.name + '»?', 'Удалится долг и история его платежей. Расходы, уже записанные со счетов, останутся в истории.', 'Удалить',
+      () => mutate('deleteDebt', [d.name], 'Долг удалён'), true);
+    else debtSheet(d);
+  };
+  $('debtAdd').onclick = () => debtSheet(null);
+  $('dPay').onclick = debtPaySheet;
+  const delDebtPay = (h, after) => {
+    const d = debtOf(h.debt) || { currency: base, symbol: sym(base) };
+    confirmSheet('Удалить платёж?', gm(h.amount, d) + ' · ' + h.debt + ' · ' + dmy(h.iso) + (h.account ? '. Расход со счёта «' + h.account + '» тоже удалится.' : ''), 'Удалить',
+      () => mutate('deleteDebtPayment', [h.id, h.row], 'Удалено', after), true);
+  };
+  $('debtHist').onclick = e => { const b = e.target.closest('[data-ddel]'); if (editMode && b) delDebtPay(debtHist[b.dataset.ddel], loadDebtHistory); };
+  $('debtHistAll').onclick = e => { const b = e.target.closest('[data-dadel]'); if (editMode && b) delDebtPay(allDebtPays[b.dataset.dadel], loadAllDebtPays); };
   $('allHist').onclick = e => {
     if (!editMode || e.target.dataset.adel === undefined) return;
     const h = allHist[e.target.dataset.adel], g = goalOf(h.goal) || { currency: base, symbol: sym(base) };
