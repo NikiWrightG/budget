@@ -246,8 +246,12 @@
   nav .plus { width: 48px; height: 48px; margin: 0; padding: 0; display: grid; place-items: center; align-self: center; }
   nav .plus svg { width: 22px; height: 22px; display: block; }
   /* Без бокового сдвига и полос прокрутки — как в обычном приложении */
-  html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavior-x: none; }
+  /* overflow на html/body в iOS превращает body в отдельную прокрутку — нижняя панель тогда «отрывается»
+     при отскоке. Поэтому боковой сдвиг обрезаем у содержимого (.wrap), а отскок отключаем. */
+  html, body { overscroll-behavior: none; }
   body { touch-action: pan-y; }
+  /* Подложка под нижней панелью: даже если iOS всё же оттянет страницу, под панелью не будет пустоты */
+  nav::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 160px; background: #101218; }
   .chips, .sheet { touch-action: pan-x pan-y; }
   html { scrollbar-width: none; -ms-overflow-style: none; }
   ::-webkit-scrollbar { width: 0; height: 0; display: none; background: transparent; }
@@ -261,6 +265,9 @@
   :root { --debt: #9646EF; --grad-debt: linear-gradient(135deg, #B07CFF, #9646EF 60%, #7A32D6); }
   .dtrack div { background: linear-gradient(90deg, #B07CFF, var(--debt)) !important; }
   #gSeg { margin-bottom: 12px; }
+  .ubar { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(69,93,220,.18); color: var(--link); font-size: 13px; padding: 8px 8px 8px 12px; border-radius: 14px; margin-bottom: 10px; }
+  .ubar[hidden] { display: none; }
+  .ubar button { border: 0; border-radius: 10px; background: var(--grad); color: #fff; font-weight: 600; font-size: 13px; padding: 8px 12px; }
   .qbar { display: none; background: rgba(255,134,46,.14); color: var(--orange); font-size: 13px; padding: 10px 12px; border-radius: 14px; margin-bottom: 10px; }
   /* Иконки */
   .av { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex: 0 0 auto; }
@@ -303,6 +310,7 @@
   </header>
   <div id="loading" class="loading">Загрузка…</div>
   <div class="qbar" id="queueBar"></div>
+  <div class="ubar" id="updBar" hidden><span>Вышла новая версия приложения</span><button id="updBtn">Обновить</button></div>
 
   <!-- Подключение к таблице -->
   <section class="screen" id="s-setup">
@@ -434,6 +442,10 @@
       <div class="row" data-go="accounts" style="cursor:pointer"><div class="main"><b>Счета и остатки</b><small>Добавить счёт, стартовый остаток, сверка с банком</small></div><span class="chev">›</span></div>
       <div class="row" data-go="cats" style="cursor:pointer"><div class="main"><b>Категории</b><small>Расходы и доходы</small></div><span class="chev">›</span></div>
       <div class="row" data-go="recurring" style="cursor:pointer"><div class="main"><b>Регулярные платежи</b><small>Аренда, интернет, подписки…</small></div><span class="chev">›</span></div>
+    </div>
+    <h2><span>Приложение</span></h2>
+    <div class="list">
+      <div class="row" id="hardReload" style="cursor:pointer"><div class="main"><b>Обновить приложение</b><small id="appVer"></small></div><span class="chev">↻</span></div>
     </div>
     <h2><span>Подключение</span></h2>
     <div class="list">
@@ -1691,6 +1703,27 @@
     }, true);
   };
 
+  // ---------- Версия приложения и обновление ----------
+  // При каждом изменении index.html номер версии меняется — так телефон узнаёт, что пора обновиться.
+  const APP_VERSION = '2026-11-05.3';
+  function hardReload() {
+    toast('Обновляю…');
+    const clear = window.caches ? caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))) : Promise.resolve();
+    const sw = navigator.serviceWorker ? navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {}) : Promise.resolve();
+    Promise.all([clear, sw]).finally(() => { location.replace(location.pathname + '?v=' + Date.now()); });
+  }
+  function checkUpdate() {
+    if (window.MOCK_RUN || !navigator.onLine) return;
+    fetch('index.html?check=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(t => {
+      const m = t.match(/const APP_VERSION = '([^']+)'/);
+      $('updBar').hidden = !(m && m[1] !== APP_VERSION);
+    }).catch(() => {});
+  }
+  $('updBtn').onclick = hardReload;
+  $('hardReload').onclick = hardReload;
+  $('appVer').textContent = 'Версия ' + APP_VERSION + ' · загрузить заново с сервера';
+  if (/[?&]v=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash);
+
   // ---------- Старт ----------
   let lastLoad = 0;
   function refresh(first) {
@@ -1716,11 +1749,13 @@
     refresh(!cached);
   }
   document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkUpdate();
     if (document.visibilityState === 'visible' && D && getCfg() && Date.now() - lastLoad > 30000) refresh(false);
   });
   window.addEventListener('online', () => { flushQueue(); if (D) refresh(false); });
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
   boot();
+  checkUpdate();
 })();
 </script>
 </body>
